@@ -1,6 +1,6 @@
 <?php
 
-namespace CounterCache\Traits;
+namespace LaraCounterCache\Traits;
 
 /**
  * Trait CounterCache
@@ -23,13 +23,14 @@ trait CounterCache
 
         });
 
+        static::updated(function ($model){
+
+        });
+
         static::deleted(function ($model) {
 
         });
 
-        static::updated(function ($model){
-
-        });
     }
 
 }

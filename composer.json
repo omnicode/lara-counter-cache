@@ -1,7 +1,7 @@
 {
     "name": "omnicode/lara-counter-cache",
-    "description": "Form for Laravel",
-    "keywords": ["laravel", "laraform"],
+    "description": "Counter cache for Laravel",
+    "keywords": ["laravel", "laracountercache"],
     "license": "MIT",
     "authors": [
         {
