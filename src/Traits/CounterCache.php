@@ -43,12 +43,11 @@ trait CounterCache
 
     public function runCounter($type)
     {
-        $this->generateQueryCounter();
         if ($type === 'up') {
-            $this->counterUp();
+            $this->generateQueryCounter('increment');
         }
         if ($type === 'down') {
-            $this->counterDown();
+            $this->generateQueryCounter('decrement');
         }
     }
 
@@ -77,17 +76,19 @@ trait CounterCache
     private function checkByParams($name, $attr)
     {
         if (!empty($attr['conditions'])) {
-            if (is_array($attr['conditions'])) {
-                $this->addBaseCondition(...$attr['conditions']);
+            $conditions = $attr['conditions'];
+            if (is_array($conditions)) {
+                $this->addBaseCondition(...$conditions);
             }
-            if ($attr['conditions'] instanceof \Closure) {
-                $query = $this->addCustomCondition($attr['conditions']);
+            if ($conditions instanceof \Closure) {
+                $query = $this->addCustomCondition($conditions);
             }
 
             unset($attr['conditions']);
             $query->where('id',$this->queryCounter->id)->increment($name);
         }
     }
+
 
     private function addBaseCondition($column, $value, $cmp = '=')
     {
@@ -109,27 +110,5 @@ trait CounterCache
         return $query->getQuery();
     }
 
-    private function checkQueryColumns($data, $event = '+', $i = 1)
-    {
-        $updateColumns = [];
-        foreach ($data as $key => $item) {
-            if (is_numeric($key)) {
-                $updateColumns[$item] = DB::raw($item . ' ' . $event . ' ' . $i);
-            } else {
-                $updateColumns[$key] = DB::raw($key . ' ' . $event . ' ' . $item);
-            }
-        }
-        return $updateColumns;
-    }
-
-    private function counterUp()
-    {
-
-    }
-
-    private function counterDown()
-    {
-
-    }
 
 }
