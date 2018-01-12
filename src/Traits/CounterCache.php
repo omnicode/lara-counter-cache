@@ -54,7 +54,7 @@ trait CounterCache
     /**
      * @param $type
      */
-    public function runCounter($type)
+    private function runCounter($type)
     {
         if ($type === 'up') {
             $this->generateQueryCounter('increment');
@@ -70,10 +70,7 @@ trait CounterCache
     private function generateQueryCounter($type)
     {
         foreach ($this->counterData as $table => $datum) {
-            $this->relationCounter = $this->load([$table => function ($query) {
-                $query->select('id');
-            }])->$table;
-
+            $this->loadRelation($table);
 
             if (!is_array($datum)) {
                 $datum = [$datum];
@@ -87,8 +84,17 @@ trait CounterCache
                     $this->counterCaching($key, $item, $type);
                 }
             }
-
         }
+    }
+
+    /**
+     * @param $table
+     */
+    private function loadRelation($table)
+    {
+        $this->relationCounter = $this->load([$table => function ($query) {
+            $query->select('id');
+        }])->$table;
     }
 
     /**
@@ -110,12 +116,14 @@ trait CounterCache
         if (is_numeric($attr)) {
             $count = $attr;
             $attr = [];
+        } else {
+            if (!empty($attr['qty']) && is_numeric($attr['qty'])) {
+                $count = $attr['qty'];
+                unset($attr['qty']);
+            }
+            $this->counterWithConditions($name, $attr, $type);
         }
-        if (!empty($attr['qty']) && is_numeric($attr['qty'])) {
-            $count = $attr['qty'];
-            unset($attr['qty']);
-        }
-        $this->counterWithConditions($name, $attr, $type);
+
         $keyName = $this->relationCounter->getKeyName();
         $query = $this->queryCounter->where($keyName, $this->relationCounter->$keyName);
         $query->{$type}($name, $count, $attr);
@@ -146,7 +154,7 @@ trait CounterCache
     /**
      * @param $conditions
      */
-    private function addConditionByMethodName($conditions)
+    private function addConditionByMethodName(&$conditions)
     {
         foreach ($conditions as $key => $value) {
             if (is_string($key) && method_exists($this->queryCounter, $key)) {
@@ -177,6 +185,5 @@ trait CounterCache
     {
         $func($this->queryCounter);
     }
-
 
 }
