@@ -121,12 +121,15 @@ trait CounterCache
                 $count = $attr['qty'];
                 unset($attr['qty']);
             }
-            $this->counterWithConditions($name, $attr, $type);
-        }
 
+            $this->counterWithConditions($attr);
+
+            $this->counterWithMethods($attr);
+            $this->counterWithClosure($attr);
+        }
         $keyName = $this->relationCounter->getKeyName();
         $query = $this->queryCounter->where($keyName, $this->relationCounter->$keyName);
-        $query->{$type}($name, $count, $attr);
+       return $query->{$type}($name, $count, $attr);
     }
 
     /**
@@ -134,33 +137,38 @@ trait CounterCache
      * @param $attr
      * @param $type
      */
-    private function counterWithConditions($name, &$attr, $type)
+    private function counterWithConditions(&$attr)
     {
         if (!empty($attr['conditions'])) {
-            $conditions = $attr['conditions'];
-
-            if (is_array($conditions)) {
-                $this->addConditionByMethodName($conditions);
-                $this->addBaseCondition(...$conditions);
-            }
-
-            if ($conditions instanceof \Closure) {
-                $this->addCustomCondition($conditions);
-            }
+            $this->addCondition(...$attr['conditions']);
             unset($attr['conditions']);
         }
     }
 
     /**
-     * @param $conditions
+     * @param $attr
      */
-    private function addConditionByMethodName(&$conditions)
+    private function counterWithMethods(&$attr)
     {
-        foreach ($conditions as $key => $value) {
-            if (is_string($key) && method_exists($this->queryCounter, $key)) {
-                $this->queryCounter->{$key}(...$value);
-                unset($conditions[$key]);
+        if (!empty($attr['methods']) && is_array($attr['methods'])) {
+            foreach ($attr['methods'] as $method => $args) {
+                if (is_string($method) && method_exists($this->queryCounter, $method)) {
+                    $this->queryCounter->{$method}(...$args);
+                }
             }
+            unset($attr['methods']);
+        }
+    }
+
+    /**
+     * @param $attr
+     */
+    private function counterWithClosure(&$attr)
+    {
+        if (!empty($attr['closure']) && $attr['closure'] instanceof \Closure) {
+            $func = $attr['closure'];
+            $func($this->queryCounter);
+            unset($attr['closure']);
         }
     }
 
@@ -169,21 +177,13 @@ trait CounterCache
      * @param $value
      * @param string $cmp
      */
-    private function addBaseCondition($column, $value, $cmp = '=')
+    private function addCondition($column, $value, $cmp = '=')
     {
         if (is_array($value)) {
             $this->queryCounter->whereIn($column, $value);
         } else {
             $this->queryCounter->where($column, $cmp, $value);
         }
-    }
-
-    /**
-     * @param callable $func
-     */
-    private function addCustomCondition(callable $func)
-    {
-        $func($this->queryCounter);
     }
 
 }
