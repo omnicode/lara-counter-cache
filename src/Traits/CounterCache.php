@@ -19,14 +19,29 @@ trait CounterCache
     private $counterData = [];
 
     /**
-     * @var
+     * @var queryCounter
      */
     private $queryCounter;
 
     /**
-     * @var
+     * @var relationCounter
      */
     private $relationCounter;
+
+    /**
+     * @var event
+     */
+    private $event;
+
+    /**
+     * @var int
+     */
+    private $counterSize = 1;
+
+    /**
+     * @var
+     */
+    private $counterType;
 
     /**
      *
@@ -38,14 +53,18 @@ trait CounterCache
         static::saved(function ($model) {
             if (method_exists($model, 'addCounter')) {
                 $model->addCounter();
-                $model->runCounter('up');
+                $model->event = 'saved';
+                $model->counterType = 'increment';
+                $model->generateQueryCounter();
             }
         });
 
         static::deleted(function ($model) {
             if (method_exists($model, 'addCounter')) {
                 $model->addCounter();
-                $model->runCounter('down');
+                $model->event = 'deleted';
+                $model->counterType = 'decrement';
+                $model->generateQueryCounter();
             }
         });
 
@@ -54,20 +73,7 @@ trait CounterCache
     /**
      * @param $type
      */
-    private function runCounter($type)
-    {
-        if ($type === 'up') {
-            $this->generateQueryCounter('increment');
-        }
-        if ($type === 'down') {
-            $this->generateQueryCounter('decrement');
-        }
-    }
-
-    /**
-     * @param $type
-     */
-    private function generateQueryCounter($type)
+    private function generateQueryCounter()
     {
         foreach ($this->counterData as $table => $datum) {
             $this->loadRelation($table);
@@ -79,9 +85,9 @@ trait CounterCache
             foreach ($datum as $key => $item) {
                 $this->setQueryCounter();
                 if (is_numeric($key)) {
-                    $this->counterCaching($item, [], $type);
+                    $this->counterCaching($item, []);
                 } else {
-                    $this->counterCaching($key, $item, $type);
+                    $this->counterCaching($key, $item);
                 }
             }
         }
@@ -109,27 +115,71 @@ trait CounterCache
      * @param $name
      * @param $attr
      * @param $type
+     * @return mixed
      */
-    private function counterCaching($name, $attr, $type)
+    private function counterCaching($name, $attr)
     {
-        $count = 1;
-        if (is_numeric($attr)) {
-            $count = $attr;
+        if (is_numeric((int)$attr)) {
+            $this->count = $attr;
             $attr = [];
-        } else {
-            if (!empty($attr['qty']) && is_numeric($attr['qty'])) {
-                $count = $attr['qty'];
-                unset($attr['qty']);
+        } elseif (is_array($attr)) {
+            $this->runCounterLogic($attr);
+            if (isset($attr['saved'])) {
+                $this->runCounterLogic($attr['saved']);
+                unset($attr['saved']);
             }
-
-            $this->counterWithConditions($attr);
-
-            $this->counterWithMethods($attr);
-            $this->counterWithClosure($attr);
+            if (isset($attr['deleted'])) {
+                $this->runCounterLogic($attr['deleted']);
+                unset($attr['deleted']);
+            }
         }
         $keyName = $this->relationCounter->getKeyName();
         $query = $this->queryCounter->where($keyName, $this->relationCounter->$keyName);
-       return $query->{$type}($name, $count, $attr);
+        return $query->{$this->counterType}($name, $this->count, $attr);
+    }
+
+    /**
+     * @param $attr
+     */
+    private function runCounterLogic(&$attr)
+    {
+        $this->counterWithConditions($attr);
+        $this->counterWithMethods($attr);
+        $this->counterWithClosure($attr);
+        $this->setCounterSize($attr);
+        $this->setCounterType($attr);
+    }
+
+    /**
+     * @param $attr
+     */
+    private function setCounterSize(&$attr)
+    {
+        if (!empty($attr['size']) && is_numeric($attr['size'])) {
+            $this->count = $attr['size'];
+            unset($attr['size']);
+        }
+    }
+
+    /**
+     * @param $attr
+     */
+    private function setCounterType(&$attr)
+    {
+        if (!empty($attr['type'])) {
+            $types = [
+                'up' => 'increment',
+                'down' => 'decrement',
+                '+' => 'increment',
+                '-' => 'decrement'
+            ];
+            if (isset($types[$attr['type']])) {
+                $this->counterType = $types[$attr['type']];
+            } else {
+                $this->counterType = $attr['type'];
+            }
+            unset($attr['type']);
+        }
     }
 
     /**
@@ -167,7 +217,7 @@ trait CounterCache
     {
         if (!empty($attr['closure']) && $attr['closure'] instanceof \Closure) {
             $func = $attr['closure'];
-            $func($this->queryCounter);
+            $func($this->queryCounter, $this->event);
             unset($attr['closure']);
         }
     }
