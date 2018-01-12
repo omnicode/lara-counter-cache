@@ -126,7 +126,7 @@ trait CounterCache
                 unset($attr['deleted']);
             }
         }
-      
+
         $keyName = $this->relationCounter->getKeyName();
         $query = $this->queryCounter->where($keyName, $this->relationCounter->$keyName);
         return $query->{$this->counterType}($name, $this->counterSize, $attr);
@@ -212,6 +212,7 @@ trait CounterCache
         if (!empty($attr['closure']) && $attr['closure'] instanceof \Closure) {
             $func = $attr['closure'];
             $func($this->queryCounter, $this->counterType, $this->counterSize);
+            $attr['type'] = $this->counterType;
             unset($attr['closure']);
         }
     }
