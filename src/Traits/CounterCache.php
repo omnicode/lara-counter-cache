@@ -29,14 +29,24 @@ trait CounterCache
     private $relationCounter;
 
     /**
-     * @var int
+     * @var int size
      */
     private $counterSize = 1;
 
     /**
-     * @var
+     * @var type
      */
     private $counterType;
+
+    /**
+     * @var default type
+     */
+    private $counterDefaultType;
+
+    /**
+     * @var columns
+     */
+    private $counterColumns;
 
     /**
      *
@@ -48,7 +58,7 @@ trait CounterCache
         static::saved(function ($model) {
             if (method_exists($model, 'addCounter')) {
                 $model->addCounter();
-                $model->counterType = 'increment';
+                $model->counterDefaultType = 'increment';
                 $model->generateQueryCounter();
             }
         });
@@ -56,7 +66,7 @@ trait CounterCache
         static::deleted(function ($model) {
             if (method_exists($model, 'addCounter')) {
                 $model->addCounter();
-                $model->counterType = 'decrement';
+                $model->counterDefaultType = 'decrement';
                 $model->generateQueryCounter();
             }
         });
@@ -91,17 +101,24 @@ trait CounterCache
      */
     private function loadRelation($table)
     {
-        $this->relationCounter = $this->load([$table => function ($query) {
-            $query->select('id');
-        }])->$table;
+        $this->relationCounter = $this->load($table)->$table;
     }
 
     /**
-     *
+     * @return mixed
      */
     private function setQueryCounter()
     {
+        if (isset($this->relationCounter[0])) {
+            $keyName = $this->relationCounter[0]->getKeyName();
+            $keys = collect($this->relationCounter)->keyBy($keyName)->keys();
+            $this->queryCounter = $this->relationCounter[0]->newQueryWithoutScopes();
+            return $this->queryCounter->whereIn($keyName, $keys);
+        }
+
         $this->queryCounter = $this->relationCounter->newQueryWithoutScopes();
+        $keyName = $this->relationCounter->getKeyName();
+        return $this->queryCounter->where($keyName, $this->relationCounter->$keyName);
     }
 
     /**
@@ -126,10 +143,10 @@ trait CounterCache
                 unset($attr['deleted']);
             }
         }
-
-        $keyName = $this->relationCounter->getKeyName();
-        $query = $this->queryCounter->where($keyName, $this->relationCounter->$keyName);
-        return $query->{$this->counterType}($name, $this->counterSize, $attr);
+        $type = empty($this->counterType) ? $this->counterDefaultType : $this->counterType;
+        $this->queryCounter->{$type}($name, $this->counterSize, $attr);
+        $this->counterSize = 1;
+        $this->counterType = null;
     }
 
     /**
