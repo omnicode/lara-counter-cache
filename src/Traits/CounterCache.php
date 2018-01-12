@@ -29,11 +29,6 @@ trait CounterCache
     private $relationCounter;
 
     /**
-     * @var event
-     */
-    private $event;
-
-    /**
      * @var int
      */
     private $counterSize = 1;
@@ -53,7 +48,6 @@ trait CounterCache
         static::saved(function ($model) {
             if (method_exists($model, 'addCounter')) {
                 $model->addCounter();
-                $model->event = 'saved';
                 $model->counterType = 'increment';
                 $model->generateQueryCounter();
             }
@@ -62,7 +56,6 @@ trait CounterCache
         static::deleted(function ($model) {
             if (method_exists($model, 'addCounter')) {
                 $model->addCounter();
-                $model->event = 'deleted';
                 $model->counterType = 'decrement';
                 $model->generateQueryCounter();
             }
