@@ -112,8 +112,8 @@ trait CounterCache
      */
     private function counterCaching($name, $attr)
     {
-        if (is_numeric((int)$attr)) {
-            $this->count = $attr;
+        if (is_numeric($attr)) {
+            $this->counterSize = $attr;
             $attr = [];
         } elseif (is_array($attr)) {
             $this->runCounterLogic($attr);
@@ -126,9 +126,10 @@ trait CounterCache
                 unset($attr['deleted']);
             }
         }
+      
         $keyName = $this->relationCounter->getKeyName();
         $query = $this->queryCounter->where($keyName, $this->relationCounter->$keyName);
-        return $query->{$this->counterType}($name, $this->count, $attr);
+        return $query->{$this->counterType}($name, $this->counterSize, $attr);
     }
 
     /**
@@ -149,7 +150,7 @@ trait CounterCache
     private function setCounterSize(&$attr)
     {
         if (!empty($attr['size']) && is_numeric($attr['size'])) {
-            $this->count = $attr['size'];
+            $this->counterSize = $attr['size'];
             unset($attr['size']);
         }
     }
