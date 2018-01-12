@@ -217,7 +217,7 @@ trait CounterCache
     {
         if (!empty($attr['closure']) && $attr['closure'] instanceof \Closure) {
             $func = $attr['closure'];
-            $func($this->queryCounter, $this->event);
+            $func($this->queryCounter, $this->counterType, $this->counterSize);
             unset($attr['closure']);
         }
     }
