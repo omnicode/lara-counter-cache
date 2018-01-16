@@ -36,14 +36,9 @@ trait CounterCache
     private $counterSize = 1;
 
     /**
-     * @var type
+     * @var
      */
-    private $counterType;
-
-    /**
-     * @var default type
-     */
-    private $counterDefaultType;
+    private $customResult = true;
 
     /**
      * @var columns
@@ -156,11 +151,11 @@ trait CounterCache
      */
     private function _isCheckQuery()
     {
-        if ($this->queryCounter instanceof Builder) {
+        if ($this->customResult && $this->queryCounter instanceof Builder) {
             return $this->queryCounter->count() > 0;
         }
 
-        throw new \Exception('The query counter must be an instance of '.Builder::class);
+        throw new \Exception('The query counter must be an instance of ' . Builder::class);
     }
 
     /**
@@ -208,7 +203,14 @@ trait CounterCache
     {
         if ($attr instanceof \Closure) {
             $func = $attr;
-            $func($this->queryCounter, $this->counterSize);
+            $result = $func($this->queryCounter, $this->counterSize);
+            if (!empty($result)) {
+                if (is_numeric($result)) {
+                    $this->counterSize = $result;
+                } else {
+                    $this->customResult = $result;
+                }
+            }
             $attr = [];
         }
     }
