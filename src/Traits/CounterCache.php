@@ -1,8 +1,7 @@
 <?php
 
 namespace LaraCounterCache\Traits;
-
-use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Trait CounterCache
@@ -10,11 +9,6 @@ use Illuminate\Database\Query\Builder;
  */
 trait CounterCache
 {
-    /**
-     * @var bool
-     */
-    public $ignorCounterCache = false;
-
     /**
      * @var array
      */
@@ -41,11 +35,6 @@ trait CounterCache
     private $customResult = true;
 
     /**
-     * @var columns
-     */
-    private $counterColumns;
-
-    /**
      *
      */
     protected static function boot()
@@ -70,6 +59,8 @@ trait CounterCache
 
     /**
      * @param $type
+     * @throws \Exception
+     * @throws \InvalidArgumentException
      */
     private function generateQueryCounter($type)
     {
@@ -100,6 +91,7 @@ trait CounterCache
         }
     }
 
+
     /**
      * @param $table
      */
@@ -109,7 +101,7 @@ trait CounterCache
     }
 
     /**
-     * @return mixed
+     * @throws \InvalidArgumentException
      */
     private function setQueryCounter()
     {
@@ -125,7 +117,8 @@ trait CounterCache
      * @param $name
      * @param $attr
      * @param $type
-     * @return mixed
+     * @return bool
+     * @throws \Exception
      */
     private function counterCaching($name, $attr, $type)
     {
@@ -133,7 +126,7 @@ trait CounterCache
             return false;
         }
 
-        if (!empty($attr) && is_array($attr)) {
+        if (!empty($attr)) {
             $this->_runCounter($attr);
         } else {
             $attr = [];
@@ -147,7 +140,8 @@ trait CounterCache
     }
 
     /**
-     * @return bool|queryCounter
+     * @return bool
+     * @throws \Exception
      */
     private function _isCheckQuery()
     {
@@ -169,9 +163,7 @@ trait CounterCache
     }
 
     /**
-     * @param $name
      * @param $attr
-     * @param $type
      */
     private function _counterWithConditions(&$attr)
     {
@@ -216,9 +208,7 @@ trait CounterCache
     }
 
     /**
-     * @param $column
-     * @param $value
-     * @param string $cmp
+     * @param $attributes
      */
     private function _addCondition($attributes)
     {
