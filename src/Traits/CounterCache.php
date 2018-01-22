@@ -101,7 +101,9 @@ trait CounterCache
      */
     private function _loadRelation($table)
     {
-        $this->relationCounter = $this->load($table)->$table;
+        $key = $this->getKey();
+        $new = $this->withTrashed()->find($key);
+        $this->relationCounter = $new->load($table)->$table;
     }
 
     /**
@@ -112,7 +114,7 @@ trait CounterCache
         $this->queryCounter = $this->newQueryWithoutScopes();
         $this->queryCounter->where($this->relationCounter->getForeignKey(), $this->relationCounter->getKey());
 
-        if (method_exists($this,'trashed') && $this->trashed()) {
+        if (method_exists($this, 'trashed') && $this->trashed()) {
             $this->queryCounter->where($this->getDeletedAtColumn(), null);
         }
     }
