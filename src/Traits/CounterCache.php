@@ -76,7 +76,6 @@ trait CounterCache
                 $item = snake_case(class_basename(get_class()));
                 $item .= '_count';
                 $this->_counterCaching($item, []);
-                continue;
             }
 
             if (!is_array($datum)) {
