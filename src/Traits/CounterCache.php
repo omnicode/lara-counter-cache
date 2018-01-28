@@ -63,11 +63,8 @@ trait CounterCache
     }
 
     /**
-     * @param $type
      * @throws \Exception
-     * @throws \InvalidArgumentException
      */
-
     private function generateQueryCounter()
     {
         foreach ($this->counterData as $index => $datum) {
@@ -78,9 +75,7 @@ trait CounterCache
             if (is_numeric($index)) {
                 $item = snake_case(class_basename(get_class()));
                 $item .= '_count';
-
                 $this->_counterCaching($item, []);
-
                 continue;
             }
 
@@ -130,7 +125,6 @@ trait CounterCache
      * @return bool
      * @throws \Exception
      */
-
     private function _counterCaching($name, $attr)
     {
         if (empty($this->relationCounter)) {
