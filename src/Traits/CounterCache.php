@@ -13,27 +13,27 @@ trait CounterCache
     /**
      * @var array
      */
-    private $counterData = [];
+    protected $_counterData = [];
 
     /**
-     * @var queryCounter
+     * @var _queryCounter
      */
-    private $queryCounter;
+    protected $_queryCounter;
 
     /**
-     * @var relationCounter
+     * @var _relationCounter
      */
-    private $relationCounter;
+    protected $_relationCounter;
 
     /**
      * @var int size
      */
-    private $counterSize = 0;
+    protected $_counterSize = 0;
 
     /**
      * @var
      */
-    private $customResult = true;
+    protected $_customResult = true;
 
     /**
      *
@@ -41,33 +41,34 @@ trait CounterCache
     protected static function boot()
     {
         parent::boot();
-
         static::created(function ($model) {
-            if (method_exists($model, 'addCounter')) {
-                $model->counterData = $model->addCounter();
-                $model->generateQueryCounter();
-            }
+            self::runCounter($model);
         });
         static::updated(function ($model) {
-            if (method_exists($model, 'addCounter')) {
-                $model->counterData = $model->addCounter();
-                $model->generateQueryCounter();
-            }
+            self::runCounter($model);
         });
         static::deleted(function ($model) {
-            if (method_exists($model, 'addCounter')) {
-                $model->counterData = $model->addCounter();
-                $model->generateQueryCounter();
-            }
+            self::runCounter($model);
         });
+    }
+
+    /**
+     * @param $model
+     */
+    public static function runCounter($model)
+    {
+        if (method_exists($model, 'addCounter')) {
+            $model->_counterData = $model->addCounter();
+            $model->_generateQueryCounter();
+        }
     }
 
     /**
      * @throws \Exception
      */
-    private function generateQueryCounter()
+    protected function _generateQueryCounter()
     {
-        foreach ($this->counterData as $index => $datum) {
+        foreach ($this->_counterData as $index => $datum) {
             $table = is_numeric($index) ? $datum : $index;
             $this->_loadRelation($table);
 
@@ -76,6 +77,7 @@ trait CounterCache
                 $item = snake_case(class_basename(get_class()));
                 $item .= '_count';
                 $this->_counterCaching($item, []);
+                continue;
             }
 
             if (!is_array($datum)) {
@@ -97,23 +99,22 @@ trait CounterCache
     /**
      * @param $table
      */
-    private function _loadRelation($table)
+    protected function _loadRelation($table)
     {
         $key = $this->getKey();
         $new = $this->withTrashed()->find($key);
-        $this->relationCounter = $new->load($table)->$table;
+        $this->_relationCounter = $new->load($table)->{$table};
     }
 
     /**
      * @throws \InvalidArgumentException
      */
-    private function _setQueryCounter()
+    protected function _setQueryCounter()
     {
-        $this->queryCounter = $this->newQueryWithoutScopes();
-        $this->queryCounter->where($this->relationCounter->getForeignKey(), $this->relationCounter->getKey());
-
+        $this->_queryCounter = $this->newQueryWithoutScopes();
+        $this->_queryCounter->where($this->_relationCounter->getForeignKey(), $this->_relationCounter->getKey());
         if (method_exists($this, 'trashed') && $this->trashed()) {
-            $this->queryCounter->where($this->getDeletedAtColumn(), null);
+            $this->_queryCounter->where($this->getDeletedAtColumn(), null);
         }
     }
 
@@ -124,22 +125,22 @@ trait CounterCache
      * @return bool
      * @throws \Exception
      */
-    private function _counterCaching($name, $attr)
+    protected function _counterCaching($name, $attr)
     {
-        if (empty($this->relationCounter)) {
+        if (empty($this->_relationCounter)) {
             return false;
         }
 
         $this->_setQueryCounter();
-        $this->_runCounter($attr);
+        $this->_counterLogic($attr);
         $count = $this->_getQueryCounter();
 
-        if ($this->relationCounter->$name !== $count) {
-            $this->relationCounter->update([$name => $count]);
+        if ($this->_relationCounter->{$name} !== $count) {
+            $this->_relationCounter->update([$name => $count]);
         }
 
-        $this->counterSize = 0;
-        $this->queryCounter = null;
+        $this->_counterSize = 0;
+        $this->_queryCounter = null;
 
     }
 
@@ -147,11 +148,11 @@ trait CounterCache
      * @return bool
      * @throws \Exception
      */
-    private function _getQueryCounter()
+    protected function _getQueryCounter()
     {
-        if ($this->customResult && $this->queryCounter instanceof Builder) {
-            $queryCount = $this->queryCounter->count();
-            return $this->counterSize > 0 ? $this->counterSize : $queryCount;
+        if ($this->_customResult && $this->_queryCounter instanceof Builder) {
+            $queryCount = $this->_queryCounter->count();
+            return $this->_counterSize > 0 ? $this->_counterSize : $queryCount;
         }
 
         throw new \Exception('The query counter must be an instance of ' . Builder::class);
@@ -160,7 +161,7 @@ trait CounterCache
     /**
      * @param $attr
      */
-    private function _runCounter($attr)
+    protected function _counterLogic($attr)
     {
         if (!empty($attr)) {
             $this->_counterWithClosure($attr);
@@ -172,10 +173,18 @@ trait CounterCache
     /**
      * @param $attr
      */
-    private function _counterWithConditions(&$attr)
+    protected function _counterWithConditions(&$attr)
     {
         if (!empty($attr['conditions'])) {
-            $this->_addCondition($attr['conditions']);
+            foreach ($attr['conditions'] as $column => $value) {
+                if (!is_numeric($column)) {
+                    if (is_array($value)) {
+                        $this->_queryCounter->whereIn($column, $value);
+                    } else {
+                        $this->_queryCounter->where($column, $value);
+                    }
+                }
+            }
             unset($attr['conditions']);
         }
     }
@@ -183,12 +192,12 @@ trait CounterCache
     /**
      * @param $attr
      */
-    private function _counterWithMethods(&$attr)
+    protected function _counterWithMethods(&$attr)
     {
         if (!empty($attr['methods']) && is_array($attr['methods'])) {
             foreach ($attr['methods'] as $method => $args) {
-                if (is_string($method) && method_exists($this->queryCounter, $method)) {
-                    $this->queryCounter->{$method}(...$args);
+                if (is_string($method) && method_exists($this->_queryCounter, $method)) {
+                    $this->_queryCounter->{$method}(...$args);
                 }
             }
             unset($attr['methods']);
@@ -198,36 +207,19 @@ trait CounterCache
     /**
      * @param $attr
      */
-    private function _counterWithClosure(&$attr)
+    protected function _counterWithClosure(&$attr)
     {
         if ($attr instanceof \Closure) {
             $func = $attr;
-            $result = $func($this->queryCounter);
+            $result = $func($this->_queryCounter);
             if (!empty($result)) {
                 if (is_numeric($result)) {
-                    $this->counterSize = $result;
+                    $this->_counterSize = $result;
                 } else {
-                    $this->customResult = (bool)$result;
+                    $this->_customResult = (bool)$result;
                 }
             }
             $attr = [];
         }
     }
-
-    /**
-     * @param $attributes
-     */
-    private function _addCondition($attributes)
-    {
-        foreach ($attributes as $column => $value) {
-            if (!is_numeric($column)) {
-                if (is_array($value)) {
-                    $this->queryCounter->whereIn($column, $value);
-                } else {
-                    $this->queryCounter->where($column, $value);
-                }
-            }
-        }
-    }
-
 }
